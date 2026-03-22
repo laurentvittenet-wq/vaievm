@@ -8,7 +8,9 @@ import {
   RefreshCcw,
   Info,
   TrendingDown,
-  BarChart3
+  BarChart3,
+  Cpu,
+  Code
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { 
@@ -628,83 +630,118 @@ function EVMSimulator({ onBack }: { onBack: () => void }) {
 
 function LandingPage({ onSelectApp }: { onSelectApp: (app: string) => void }) {
   return (
-    <div className="min-h-screen bg-[#0A0A0B] text-white font-sans overflow-hidden relative">
-      {/* Background Decorative Elements */}
-      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-600/20 blur-[120px] rounded-full" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-emerald-600/20 blur-[120px] rounded-full" />
+    <div className="min-h-screen bg-white text-slate-900 font-sans overflow-hidden relative">
+      {/* Background Decorative Elements - Subtler for light mode */}
+      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-50 blur-[120px] rounded-full" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-emerald-50 blur-[120px] rounded-full" />
       
       <div className="max-w-7xl mx-auto px-6 py-12 md:py-24 flex flex-col items-center justify-center min-h-screen relative z-10">
         <motion.div 
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, ease: "easeOut" }}
-          className="text-center space-y-8"
+          className="text-center space-y-12 w-full"
         >
-          {/* Illustration Section */}
-          <div className="relative group">
+          {/* EDF Inspired Banner Section */}
+          <div className="relative w-full overflow-hidden rounded-3xl shadow-2xl">
             <motion.div
-              animate={{ 
-                rotate: [0, 5, -5, 0],
-                scale: [1, 1.02, 0.98, 1]
-              }}
-              transition={{ 
-                duration: 10, 
-                repeat: Infinity,
-                ease: "easeInOut"
-              }}
-              className="relative z-10 w-64 h-64 md:w-80 md:h-80 mx-auto"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.2, duration: 0.8 }}
+              className="relative z-10 w-full h-[300px] md:h-[400px] bg-gradient-to-br from-[#005BBB] via-[#004a99] to-[#003366] flex items-center justify-center overflow-hidden"
             >
-              <img 
-                src="https://picsum.photos/seed/abstract-tech/800/800" 
-                alt="Modern Tech Illustration" 
-                className="w-full h-full object-cover rounded-[40px] shadow-2xl shadow-indigo-500/20 border-2 border-white/10"
-                referrerPolicy="no-referrer"
-              />
-              <div className="absolute inset-0 rounded-[40px] bg-gradient-to-tr from-indigo-600/40 to-transparent mix-blend-overlay" />
-            </motion.div>
-            
-            {/* Floating Elements */}
-            <motion.div 
-              animate={{ y: [0, -20, 0] }}
-              transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-              className="absolute -top-6 -right-6 p-4 bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl shadow-xl"
-            >
-              <TrendingUp className="w-8 h-8 text-emerald-400" />
-            </motion.div>
-            <motion.div 
-              animate={{ y: [0, 20, 0] }}
-              transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 1 }}
-              className="absolute -bottom-8 -left-8 p-4 bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl shadow-xl"
-            >
-              <BarChart3 className="w-8 h-8 text-indigo-400" />
+              {/* Abstract Code & Circuit Drawings */}
+              <div className="absolute inset-0 opacity-20 select-none pointer-events-none overflow-hidden">
+                {/* SVG Circuit Lines */}
+                <svg className="absolute inset-0 w-full h-full" viewBox="0 0 1000 400" preserveAspectRatio="none">
+                  <path d="M0,100 L200,100 L250,150 L400,150" fill="none" stroke="white" strokeWidth="1" strokeDasharray="5,5" />
+                  <path d="M1000,300 L800,300 L750,250 L600,250" fill="none" stroke="white" strokeWidth="1" strokeDasharray="5,5" />
+                  <circle cx="200" cy="100" r="3" fill="#FF6321" />
+                  <circle cx="800" cy="300" r="3" fill="#FF6321" />
+                  <circle cx="400" cy="150" r="4" fill="white" />
+                  <circle cx="600" cy="250" r="4" fill="white" />
+                </svg>
+
+                {/* Floating Code Blocks */}
+                <div className="absolute top-10 left-10 font-mono text-xs text-white/60 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <Code className="w-3 h-3 text-[#FF6321]" />
+                    <span>import {'{'} energy {'}'} from 'edf-core';</span>
+                  </div>
+                  <div className="pl-5">const grid = new SmartGrid();</div>
+                  <div className="pl-5">grid.optimize();</div>
+                </div>
+
+                <div className="absolute bottom-10 right-10 font-mono text-xs text-white/60 text-right space-y-1">
+                  <div className="flex items-center justify-end gap-2">
+                    <span>function monitor() {'{'} ... {'}'}</span>
+                    <Code className="w-3 h-3 text-[#FF6321]" />
+                  </div>
+                  <div>system.status = 'OPTIMAL';</div>
+                  <div className="text-blue-300">// 100% Efficiency</div>
+                </div>
+              </div>
+
+              {/* Central Iconography */}
+              <div className="relative z-20 flex flex-col md:flex-row items-center gap-6 md:gap-10">
+                <div className="relative">
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+                    className="w-24 h-24 md:w-36 md:h-36 border-2 border-dashed border-white/20 rounded-full flex items-center justify-center"
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="w-16 h-16 md:w-24 md:h-24 bg-white/10 backdrop-blur-sm rounded-full flex items-center justify-center border border-white/20">
+                      <Cpu className="w-8 h-8 md:w-12 md:h-12 text-white" />
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="flex flex-col items-center md:items-start text-center md:text-left">
+                  <div className="flex gap-2 mb-3">
+                    <div className="w-2 h-2 rounded-full bg-[#FF6321] animate-pulse" />
+                    <div className="w-2 h-2 rounded-full bg-white/50" />
+                    <div className="w-2 h-2 rounded-full bg-white/20" />
+                  </div>
+                  <h2 className="text-white text-3xl md:text-6xl font-black tracking-tighter uppercase italic leading-none">
+                    Digital <span className="text-[#FF6321]">Energy</span>
+                  </h2>
+                  <p className="text-white/40 text-[10px] md:text-xs font-mono mt-2 tracking-widest uppercase">
+                    Smart Infrastructure • Code Driven
+                  </p>
+                </div>
+              </div>
+
+              {/* Decorative side elements */}
+              <div className="absolute top-0 right-0 w-1/4 h-full bg-gradient-to-l from-white/5 to-transparent skew-x-[-15deg] translate-x-1/2" />
+              <div className="absolute bottom-0 left-0 w-1/4 h-full bg-gradient-to-r from-[#FF6321]/5 to-transparent skew-x-[-15deg] -translate-x-1/2" />
             </motion.div>
           </div>
 
           <div className="space-y-4">
-            <h1 className="text-5xl md:text-7xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-b from-white to-white/50">
+            <h1 className="text-5xl md:text-7xl font-black tracking-tighter text-slate-900">
               Mes Applications
             </h1>
-            <p className="text-slate-400 text-lg md:text-xl max-w-2xl mx-auto font-medium">
-              Explorez vos outils de gestion et d'analyse de performance en un seul endroit.
+            <p className="text-slate-500 text-lg md:text-xl max-w-2xl mx-auto font-medium">
+              Explorez les outils
             </p>
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-6 justify-center pt-8">
+          <div className="flex flex-col sm:flex-row gap-6 justify-center pt-4">
             <motion.button
-              whileHover={{ scale: 1.05, y: -5 }}
-              whileTap={{ scale: 0.95 }}
+              whileHover={{ scale: 1.02, y: -2 }}
+              whileTap={{ scale: 0.98 }}
               onClick={() => onSelectApp('evm')}
-              className="group relative px-8 py-4 bg-indigo-600 rounded-2xl font-bold text-lg flex items-center gap-3 shadow-xl shadow-indigo-600/20 hover:bg-indigo-500 transition-all overflow-hidden"
+              className="group relative px-10 py-4 bg-slate-900 text-white rounded-2xl font-bold text-lg flex items-center gap-3 shadow-lg shadow-slate-200 hover:bg-slate-800 transition-all"
             >
-              <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
               <LayoutDashboard className="w-6 h-6" />
               EVM Simulator
             </motion.button>
 
             <motion.button
-              whileHover={{ scale: 1.05, y: -5 }}
-              whileTap={{ scale: 0.95 }}
-              className="px-8 py-4 bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl font-bold text-lg text-slate-300 flex items-center gap-3 hover:bg-white/10 transition-all cursor-not-allowed opacity-60"
+              whileHover={{ scale: 1.02, y: -2 }}
+              whileTap={{ scale: 0.98 }}
+              className="px-10 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-lg text-slate-400 flex items-center gap-3 hover:bg-slate-100 transition-all cursor-not-allowed opacity-60"
             >
               <Clock className="w-6 h-6" />
               Prochainement...
@@ -712,7 +749,7 @@ function LandingPage({ onSelectApp }: { onSelectApp: (app: string) => void }) {
           </div>
         </motion.div>
 
-        <footer className="absolute bottom-8 text-slate-600 text-xs font-bold uppercase tracking-widest">
+        <footer className="absolute bottom-8 text-slate-400 text-xs font-bold uppercase tracking-widest">
           © 2026 • Laurent Vittenet
         </footer>
       </div>
