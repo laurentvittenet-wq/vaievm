@@ -59,7 +59,7 @@ const generateSCurveData = (bac: number, currentMonth: number, currentEv: number
   });
 };
 
-export default function App() {
+function EVMSimulator({ onBack }: { onBack: () => void }) {
   // Current month index (1-12)
   const [currentMonth, setCurrentMonth] = useState(6);
   
@@ -138,7 +138,7 @@ export default function App() {
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
-              <div className="p-2 bg-indigo-600 rounded-xl">
+              <div className="p-2 bg-indigo-600 rounded-xl cursor-pointer hover:bg-indigo-700 transition-colors" onClick={onBack}>
                 <LayoutDashboard className="w-6 h-6 text-white" />
               </div>
               Dashboard Performance Projet
@@ -623,5 +623,113 @@ export default function App() {
 
       </div>
     </div>
+  );
+}
+
+function LandingPage({ onSelectApp }: { onSelectApp: (app: string) => void }) {
+  return (
+    <div className="min-h-screen bg-[#0A0A0B] text-white font-sans overflow-hidden relative">
+      {/* Background Decorative Elements */}
+      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-600/20 blur-[120px] rounded-full" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-emerald-600/20 blur-[120px] rounded-full" />
+      
+      <div className="max-w-7xl mx-auto px-6 py-12 md:py-24 flex flex-col items-center justify-center min-h-screen relative z-10">
+        <motion.div 
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, ease: "easeOut" }}
+          className="text-center space-y-8"
+        >
+          {/* Illustration Section */}
+          <div className="relative group">
+            <motion.div
+              animate={{ 
+                rotate: [0, 5, -5, 0],
+                scale: [1, 1.02, 0.98, 1]
+              }}
+              transition={{ 
+                duration: 10, 
+                repeat: Infinity,
+                ease: "easeInOut"
+              }}
+              className="relative z-10 w-64 h-64 md:w-80 md:h-80 mx-auto"
+            >
+              <img 
+                src="https://picsum.photos/seed/abstract-tech/800/800" 
+                alt="Modern Tech Illustration" 
+                className="w-full h-full object-cover rounded-[40px] shadow-2xl shadow-indigo-500/20 border-2 border-white/10"
+                referrerPolicy="no-referrer"
+              />
+              <div className="absolute inset-0 rounded-[40px] bg-gradient-to-tr from-indigo-600/40 to-transparent mix-blend-overlay" />
+            </motion.div>
+            
+            {/* Floating Elements */}
+            <motion.div 
+              animate={{ y: [0, -20, 0] }}
+              transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+              className="absolute -top-6 -right-6 p-4 bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl shadow-xl"
+            >
+              <TrendingUp className="w-8 h-8 text-emerald-400" />
+            </motion.div>
+            <motion.div 
+              animate={{ y: [0, 20, 0] }}
+              transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+              className="absolute -bottom-8 -left-8 p-4 bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl shadow-xl"
+            >
+              <BarChart3 className="w-8 h-8 text-indigo-400" />
+            </motion.div>
+          </div>
+
+          <div className="space-y-4">
+            <h1 className="text-5xl md:text-7xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-b from-white to-white/50">
+              Mes Applications
+            </h1>
+            <p className="text-slate-400 text-lg md:text-xl max-w-2xl mx-auto font-medium">
+              Explorez vos outils de gestion et d'analyse de performance en un seul endroit.
+            </p>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-6 justify-center pt-8">
+            <motion.button
+              whileHover={{ scale: 1.05, y: -5 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => onSelectApp('evm')}
+              className="group relative px-8 py-4 bg-indigo-600 rounded-2xl font-bold text-lg flex items-center gap-3 shadow-xl shadow-indigo-600/20 hover:bg-indigo-500 transition-all overflow-hidden"
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
+              <LayoutDashboard className="w-6 h-6" />
+              EVM Simulator
+            </motion.button>
+
+            <motion.button
+              whileHover={{ scale: 1.05, y: -5 }}
+              whileTap={{ scale: 0.95 }}
+              className="px-8 py-4 bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl font-bold text-lg text-slate-300 flex items-center gap-3 hover:bg-white/10 transition-all cursor-not-allowed opacity-60"
+            >
+              <Clock className="w-6 h-6" />
+              Prochainement...
+            </motion.button>
+          </div>
+        </motion.div>
+
+        <footer className="absolute bottom-8 text-slate-600 text-xs font-bold uppercase tracking-widest">
+          © 2026 • Laurent Vittenet
+        </footer>
+      </div>
+    </div>
+  );
+}
+
+export default function App() {
+  const [view, setView] = useState<'home' | 'evm'>('home');
+
+  return (
+    <>
+      {view === 'home' ? (
+        <LandingPage onSelectApp={(app) => setView(app as 'evm')} />
+      ) : (
+        <EVMSimulator onBack={() => setView('home')} />
+      )}
+    </>
   );
 }
