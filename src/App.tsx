@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
   LayoutDashboard, 
   TrendingUp, 
@@ -10,9 +10,28 @@ import {
   TrendingDown,
   BarChart3,
   Cpu,
-  Code
+  Code,
+  Mic,
+  MicOff,
+  Download,
+  Trash2,
+  ArrowLeft,
+  FileText,
+  Square,
+  History,
+  Copy,
+  Check,
+  Loader2,
+  Settings,
+  ChevronRight,
+  Activity,
+  Edit2,
+  Save,
+  X,
+  ShieldCheck,
+  Search
 } from 'lucide-react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { 
   XAxis, 
   YAxis, 
@@ -25,6 +44,12 @@ import {
   LabelList
 } from 'recharts';
 import { EVMData, EVMMetrics } from './types';
+import { GoogleGenAI } from "@google/genai";
+import { cn } from './lib/utils';
+import Markdown from 'react-markdown';
+
+// Initialisation de Gemini
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
 
 // Helper to generate S-curve data
 const generateSCurveData = (bac: number, currentMonth: number, currentEv: number, customPv?: number[]) => {
@@ -741,6 +766,16 @@ function LandingPage({ onSelectApp }: { onSelectApp: (app: string) => void }) {
             <motion.button
               whileHover={{ scale: 1.02, y: -2 }}
               whileTap={{ scale: 0.98 }}
+              onClick={() => onSelectApp('steno')}
+              className="group relative px-10 py-4 bg-indigo-600 text-white rounded-2xl font-bold text-lg flex items-center gap-3 shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all"
+            >
+              <Mic className="w-6 h-6" />
+              Steno
+            </motion.button>
+
+            <motion.button
+              whileHover={{ scale: 1.02, y: -2 }}
+              whileTap={{ scale: 0.98 }}
               className="px-10 py-4 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-lg text-slate-400 flex items-center gap-3 hover:bg-slate-100 transition-all cursor-not-allowed opacity-60"
             >
               <Clock className="w-6 h-6" />
@@ -758,15 +793,488 @@ function LandingPage({ onSelectApp }: { onSelectApp: (app: string) => void }) {
 }
 
 export default function App() {
-  const [view, setView] = useState<'home' | 'evm'>('home');
+  const [view, setView] = useState<'home' | 'evm' | 'steno'>('home');
 
   return (
     <>
-      {view === 'home' ? (
-        <LandingPage onSelectApp={(app) => setView(app as 'evm')} />
-      ) : (
+      {view === 'home' && (
+        <LandingPage onSelectApp={(app) => setView(app as any)} />
+      )}
+      {view === 'evm' && (
         <EVMSimulator onBack={() => setView('home')} />
+      )}
+      {view === 'steno' && (
+        <StenoApp onBack={() => setView('home')} />
       )}
     </>
   );
 }
+
+interface Transcription {
+  id: string;
+  text: string;
+  timestamp: number;
+  duration: number;
+}
+
+function StenoApp({ onBack }: { onBack: () => void }) {
+  const [isRecording, setIsRecording] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [currentTranscript, setCurrentTranscript] = useState<string>('');
+  const [currentEntryId, setCurrentEntryId] = useState<string | null>(null);
+  const [editableText, setEditableText] = useState<string>('');
+  const [isEditing, setIsEditing] = useState(false);
+  const [history, setHistory] = useState<Transcription[]>([]);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [permissionStatus, setPermissionStatus] = useState<'prompt' | 'granted' | 'denied'>('prompt');
+  const [isCheckingPermission, setIsCheckingPermission] = useState(true);
+
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    const checkPermission = async () => {
+      try {
+        if (navigator.permissions && navigator.permissions.query) {
+          const result = await navigator.permissions.query({ name: 'microphone' as PermissionName });
+          setPermissionStatus(result.state as 'prompt' | 'granted' | 'denied');
+          result.onchange = () => setPermissionStatus(result.state as 'prompt' | 'granted' | 'denied');
+        }
+      } catch (err) {
+        setPermissionStatus('denied');
+      } finally {
+        setIsCheckingPermission(false);
+      }
+    };
+    checkPermission();
+  }, []);
+
+  useEffect(() => {
+    const saved = localStorage.getItem('steno_history');
+    if (saved) setHistory(JSON.parse(saved));
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('steno_history', JSON.stringify(history));
+  }, [history]);
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      setPermissionStatus('granted');
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+      mediaRecorder.ondataavailable = (e) => audioChunksRef.current.push(e.data);
+      mediaRecorder.onstop = async () => {
+        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        await transcribeAudio(blob);
+        stream.getTracks().forEach(t => t.stop());
+      };
+      mediaRecorder.start();
+      setIsRecording(true);
+      setRecordingTime(0);
+      timerRef.current = setInterval(() => setRecordingTime(p => p + 1), 1000);
+    } catch (err) {
+      setPermissionStatus('denied');
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      if (timerRef.current) clearInterval(timerRef.current);
+    }
+  };
+
+  const transcribeAudio = async (blob: Blob) => {
+    setIsTranscribing(true);
+    const reader = new FileReader();
+    reader.readAsDataURL(blob);
+    reader.onloadend = async () => {
+      try {
+        const base64 = (reader.result as string).split(',')[1];
+        const response = await ai.models.generateContent({
+          model: "gemini-3-flash-preview",
+          contents: [{ parts: [{ text: "Transcrivez cet audio en français. Soyez précis et conservez la ponctuation. Utilisez un formatage markdown si nécessaire pour la clarté." }, { inlineData: { data: base64, mimeType: "audio/webm" } }] }]
+        });
+        const text = response.text || "Désolé, je n'ai pas pu transcrire cet audio.";
+        const newEntry = { id: Date.now().toString(), text, timestamp: Date.now(), duration: recordingTime };
+        setHistory(prev => [newEntry, ...prev]);
+        setCurrentTranscript(text);
+        setEditableText(text);
+        setCurrentEntryId(newEntry.id);
+      } catch (error) {
+        console.error("Transcription error:", error);
+        alert("Une erreur est survenue lors de la transcription.");
+      } finally {
+        setIsTranscribing(false);
+      }
+    };
+  };
+
+  const exportTranscription = (text: string) => {
+    const blob = new Blob([text], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `steno-${new Date().toISOString().slice(0,10)}.txt`;
+    a.click();
+  };
+
+  const copyToClipboard = (text: string, id: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const deleteEntry = (id: string) => {
+    if (window.confirm("Voulez-vous vraiment supprimer cette transcription ?")) {
+      setHistory(prev => prev.filter(h => h.id !== id));
+      if (currentTranscript && history.find(h => h.id === id)?.text === currentTranscript) {
+        setCurrentTranscript('');
+        setEditableText('');
+      }
+    }
+  };
+
+  const saveEdit = () => {
+    if (!currentEntryId) return;
+    setHistory(prev => prev.map(h => {
+      if (h.id === currentEntryId) {
+        return { ...h, text: editableText };
+      }
+      return h;
+    }));
+    setCurrentTranscript(editableText);
+    setIsEditing(false);
+  };
+
+  const cancelEdit = () => {
+    setEditableText(currentTranscript);
+    setIsEditing(false);
+  };
+
+  const formatDuration = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const filteredHistory = history.filter(h => h.text.toLowerCase().includes(searchQuery.toLowerCase()));
+
+  return (
+    <div className="min-h-screen bg-[#F8FAFC] font-sans selection:bg-indigo-100 selection:text-indigo-900">
+      <div className="max-w-5xl mx-auto px-4 py-8 md:py-12">
+        {/* Header Section */}
+        <header className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
+          <div className="space-y-2">
+            <div className="flex items-center gap-3">
+              <button 
+                onClick={onBack}
+                className="p-2 -ml-2 hover:bg-white rounded-full transition-all text-slate-400 hover:text-slate-900"
+              >
+                <ArrowLeft className="w-6 h-6" />
+              </button>
+              <div className="flex items-center gap-2 px-3 py-1 bg-indigo-50 text-indigo-600 rounded-full text-[10px] font-bold uppercase tracking-widest">
+                <Activity className="w-3 h-3" />
+                Live Transcription
+              </div>
+            </div>
+            <h1 className="text-5xl md:text-7xl font-black tracking-tighter text-slate-900 uppercase italic">
+              Steno<span className="text-indigo-600">.AI</span>
+            </h1>
+            <p className="text-slate-400 font-medium tracking-tight">Transcription intelligente propulsée par Gemini</p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={() => setShowHistory(!showHistory)}
+              className={cn(
+                "flex items-center gap-2 px-6 py-3 rounded-2xl font-bold transition-all border",
+                showHistory 
+                  ? "bg-slate-900 text-white border-slate-900 shadow-xl shadow-slate-200" 
+                  : "bg-white text-slate-600 border-slate-200 hover:border-slate-300"
+              )}
+            >
+              <History className="w-5 h-5" />
+              {showHistory ? "Fermer l'historique" : "Historique"}
+            </button>
+          </div>
+        </header>
+
+        <main className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          {/* Left Column: Recording & Current Transcript */}
+          <div className={cn("lg:col-span-12 space-y-8 transition-all duration-500", showHistory ? "lg:col-span-7" : "lg:col-span-12")}>
+            
+            {/* Recording Card */}
+            <section className="bg-white rounded-[40px] p-8 md:p-12 shadow-2xl shadow-slate-200/50 border border-slate-100 relative overflow-hidden">
+              <div className="absolute top-0 right-0 p-8">
+                {permissionStatus === 'denied' && (
+                  <div className="flex items-center gap-2 text-rose-500 bg-rose-50 px-4 py-2 rounded-full text-xs font-bold">
+                    <AlertCircle className="w-4 h-4" />
+                    Microphone bloqué
+                  </div>
+                )}
+                {permissionStatus === 'granted' && (
+                  <div className="flex items-center gap-2 text-emerald-500 bg-emerald-50 px-4 py-2 rounded-full text-xs font-bold">
+                    <ShieldCheck className="w-4 h-4" />
+                    Accès autorisé
+                  </div>
+                )}
+              </div>
+
+              <div className="flex flex-col items-center text-center space-y-8">
+                <div className="relative">
+                  <AnimatePresence>
+                    {isRecording && (
+                      <motion.div 
+                        initial={{ scale: 0.8, opacity: 0 }}
+                        animate={{ scale: 1.5, opacity: 0.1 }}
+                        exit={{ scale: 0.8, opacity: 0 }}
+                        transition={{ repeat: Infinity, duration: 2 }}
+                        className="absolute inset-0 bg-rose-500 rounded-full"
+                      />
+                    )}
+                  </AnimatePresence>
+                  
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={isRecording ? stopRecording : startRecording}
+                    className={cn(
+                      "relative z-10 w-24 h-24 md:w-32 md:h-32 rounded-full flex items-center justify-center transition-all shadow-2xl",
+                      isRecording 
+                        ? "bg-rose-500 shadow-rose-200 text-white" 
+                        : "bg-indigo-600 shadow-indigo-200 text-white"
+                    )}
+                  >
+                    {isRecording ? <Square className="w-10 h-10 md:w-12 md:h-12 fill-current" /> : <Mic className="w-10 h-10 md:w-12 md:h-12" />}
+                  </motion.button>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="text-4xl md:text-6xl font-black font-mono tracking-tighter text-slate-900">
+                    {formatDuration(recordingTime)}
+                  </div>
+                  <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">
+                    {isRecording ? "Enregistrement en cours..." : "Prêt à enregistrer"}
+                  </p>
+                </div>
+              </div>
+            </section>
+
+            {/* Current Result Area */}
+            <AnimatePresence>
+              {(isTranscribing || currentTranscript) && (
+                <motion.section
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 20 }}
+                  className="bg-white rounded-[40px] p-8 md:p-12 shadow-xl border border-slate-100 space-y-6"
+                >
+                  <div className="flex items-center justify-between border-b border-slate-50 pb-6">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-slate-900 rounded-2xl flex items-center justify-center text-white">
+                        <FileText className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h3 className="font-black uppercase italic tracking-tight text-slate-900">Dernière Transcription</h3>
+                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Généré il y a quelques instants</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      {isTranscribing ? (
+                        <div className="flex items-center gap-2 text-indigo-600 font-bold text-xs animate-pulse">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Gemini réfléchit...
+                        </div>
+                      ) : (
+                        <>
+                          <button 
+                            onClick={() => setIsEditing(!isEditing)}
+                            className="p-3 hover:bg-slate-50 rounded-2xl transition-all text-slate-400 hover:text-slate-900"
+                          >
+                            {isEditing ? <X className="w-5 h-5" /> : <Edit2 className="w-5 h-5" />}
+                          </button>
+                          <button 
+                            onClick={() => copyToClipboard(currentTranscript, 'current')}
+                            className="p-3 hover:bg-slate-50 rounded-2xl transition-all text-slate-400 hover:text-slate-900"
+                          >
+                            {copiedId === 'current' ? <Check className="w-5 h-5 text-emerald-500" /> : <Copy className="w-5 h-5" />}
+                          </button>
+                          <button 
+                            onClick={() => exportTranscription(currentTranscript)}
+                            className="p-3 hover:bg-slate-50 rounded-2xl transition-all text-slate-400 hover:text-slate-900"
+                          >
+                            <Download className="w-5 h-5" />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="min-h-[200px] relative">
+                    {isEditing ? (
+                      <div className="space-y-4 animate-in fade-in zoom-in-95 duration-200">
+                        <textarea
+                          value={editableText}
+                          onChange={(e) => setEditableText(e.target.value)}
+                          autoFocus
+                          className="w-full min-h-[300px] p-6 bg-slate-50 border-2 border-indigo-100 rounded-3xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 font-medium text-slate-700 leading-relaxed resize-none transition-all outline-none"
+                        />
+                        <div className="flex justify-end gap-3">
+                          <button 
+                            onClick={cancelEdit}
+                            className="px-6 py-3 bg-white text-slate-600 border border-slate-200 rounded-2xl font-bold hover:bg-slate-50 transition-all"
+                          >
+                            Annuler
+                          </button>
+                          <button 
+                            onClick={saveEdit}
+                            className="flex items-center gap-2 px-8 py-3 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200"
+                          >
+                            <Save className="w-5 h-5" />
+                            Enregistrer
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div 
+                        onClick={() => {
+                          if (currentTranscript && !isTranscribing) {
+                            setIsEditing(true);
+                          }
+                        }}
+                        className={cn(
+                          "prose prose-slate max-w-none prose-p:leading-relaxed prose-p:text-slate-700 prose-p:font-medium group relative cursor-pointer rounded-3xl p-4 -m-4 hover:bg-slate-50 transition-colors",
+                          !currentTranscript && "cursor-default hover:bg-transparent"
+                        )}
+                      >
+                        {currentTranscript && (
+                          <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div className="flex items-center gap-1 text-[10px] font-bold text-indigo-600 uppercase tracking-widest bg-white px-2 py-1 rounded-full shadow-sm border border-indigo-50">
+                              <Edit2 className="w-3 h-3" />
+                              Cliquer pour éditer
+                            </div>
+                          </div>
+                        )}
+                        <Markdown>{currentTranscript}</Markdown>
+                      </div>
+                    )}
+                  </div>
+                </motion.section>
+              )}
+            </AnimatePresence>
+          </div>
+
+          {/* Right Column: History */}
+          <AnimatePresence>
+            {showHistory && (
+              <motion.aside
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 20 }}
+                className="lg:col-span-5 space-y-6"
+              >
+                <div className="bg-white rounded-[40px] p-8 shadow-xl border border-slate-100 min-h-[600px] flex flex-col">
+                  <div className="space-y-6 mb-8">
+                    <h3 className="text-2xl font-black uppercase italic tracking-tight text-slate-900">Historique</h3>
+                    
+                    <div className="relative">
+                      <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <input 
+                        type="text"
+                        placeholder="Rechercher dans vos notes..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="w-full pl-12 pr-6 py-4 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-indigo-500 text-sm font-medium"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto space-y-4 pr-2 custom-scrollbar">
+                    {filteredHistory.length === 0 ? (
+                      <div className="h-full flex flex-col items-center justify-center text-center space-y-4 py-20">
+                        <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center text-slate-200">
+                          <Search className="w-8 h-8" />
+                        </div>
+                        <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px]">Aucun résultat trouvé</p>
+                      </div>
+                    ) : (
+                      filteredHistory.map((item) => (
+                        <motion.div 
+                          layout
+                          key={item.id}
+                          className="group bg-slate-50 hover:bg-white hover:shadow-lg hover:shadow-slate-200/50 rounded-3xl p-6 transition-all border border-transparent hover:border-slate-100"
+                        >
+                          <div className="flex justify-between items-start mb-4">
+                            <div className="space-y-1">
+                              <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                {new Date(item.timestamp).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                              </div>
+                              <div className="flex items-center gap-2 text-indigo-600 font-bold text-xs">
+                                <Clock className="w-3 h-3" />
+                                {formatDuration(item.duration)}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                              <button 
+                                onClick={() => copyToClipboard(item.text, item.id)}
+                                className="p-2 hover:bg-white rounded-xl text-slate-400 hover:text-slate-900 transition-all"
+                              >
+                                {copiedId === item.id ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
+                              </button>
+                              <button 
+                                onClick={() => deleteEntry(item.id)}
+                                className="p-2 hover:bg-white rounded-xl text-slate-400 hover:text-rose-500 transition-all"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+                          <p className="text-slate-600 text-sm font-medium leading-relaxed line-clamp-3">
+                            {item.text}
+                          </p>
+                          <button 
+                            onClick={() => {
+                              setCurrentTranscript(item.text);
+                              setEditableText(item.text);
+                              setCurrentEntryId(item.id);
+                              setShowHistory(false);
+                            }}
+                            className="mt-4 flex items-center gap-2 text-indigo-600 font-bold text-xs hover:underline"
+                          >
+                            Ouvrir et éditer
+                            <ChevronRight className="w-3 h-3" />
+                          </button>
+                        </motion.div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </motion.aside>
+            )}
+          </AnimatePresence>
+        </main>
+
+        <footer className="mt-20 pt-8 border-t border-slate-200 flex flex-col md:flex-row items-center justify-between gap-4">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+            Steno v2.0 • Powered by Gemini 3 Flash
+          </p>
+          <div className="flex items-center gap-6">
+            <a href="#" className="text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-slate-900 transition-all">Privacy Policy</a>
+            <a href="#" className="text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-slate-900 transition-all">Terms of Service</a>
+          </div>
+        </footer>
+      </div>
+    </div>
+  );
+}
+
