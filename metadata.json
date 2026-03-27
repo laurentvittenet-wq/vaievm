@@ -1,5 +1,5 @@
 {
-  "name": "Project EVM Dashboard",
-  "description": "Tableau de bord de gestion de projet affichant la Valeur Acquise (EV) et l'indice de performance des délais (SPI) avec des contrôles interactifs.",
+  "name": "Sténo",
+  "description": "Application d'enregistrement et de retranscription de conversations avec historique, classement et export.",
   "requestFramePermissions": ["microphone"]
 }
