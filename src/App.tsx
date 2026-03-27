@@ -18,11 +18,16 @@ import {
   Check,
   Plus,
   Save,
-  X
+  X,
+  Activity,
+  BarChart3,
+  TrendingUp,
+  DollarSign
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from './lib/utils';
 import Markdown from 'react-markdown';
+import { EVMData, EVMMetrics } from './types';
 
 // Types
 interface Transcription {
@@ -37,6 +42,268 @@ type SortField = 'date' | 'label';
 type SortOrder = 'asc' | 'desc';
 
 export default function App() {
+  const [view, setView] = useState<'landing' | 'steno' | 'evm'>('landing');
+
+  if (view === 'steno') {
+    return <StenoApp onBack={() => setView('landing')} />;
+  }
+
+  if (view === 'evm') {
+    return <EVMDashboardApp onBack={() => setView('landing')} />;
+  }
+
+  return <LandingPage onOpenSteno={() => setView('steno')} onOpenEVM={() => setView('evm')} />;
+}
+
+function LandingPage({ onOpenSteno, onOpenEVM }: { onOpenSteno: () => void, onOpenEVM: () => void }) {
+  return (
+    <div className="min-h-screen bg-slate-50 font-sans text-slate-900">
+      {/* EDF Inspired Banner */}
+      <div className="relative h-80 bg-gradient-to-r from-[#005BBB] to-[#FF6321] overflow-hidden">
+        <div className="absolute inset-0 opacity-20">
+          {/* Code-related drawings (SVG patterns) */}
+          <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+            <path d="M0,10 L100,10 M0,30 L100,30 M0,50 L100,50 M0,70 L100,70 M0,90 L100,90" stroke="white" strokeWidth="0.5" />
+            <text x="10" y="25" fill="white" fontSize="4" fontFamily="monospace">{"const app = express();"}</text>
+            <text x="40" y="45" fill="white" fontSize="4" fontFamily="monospace">{"function transcribe() { ... }"}</text>
+            <text x="20" y="65" fill="white" fontSize="4" fontFamily="monospace">{"import { motion } from 'motion/react';"}</text>
+            <text x="60" y="85" fill="white" fontSize="4" fontFamily="monospace">{"<div className='banner' />"}</text>
+            <circle cx="80" cy="20" r="5" fill="white" />
+            <rect x="75" y="55" width="10" height="10" fill="white" />
+          </svg>
+        </div>
+        <div className="relative max-w-7xl mx-auto px-4 h-full flex flex-col justify-center">
+          <h1 className="text-6xl font-black text-white tracking-tighter uppercase italic">
+            Mes applications
+          </h1>
+          <p className="text-white/80 text-xl font-medium mt-2">Explorez les outils</p>
+        </div>
+      </div>
+
+      <main className="max-w-7xl mx-auto px-4 -mt-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {/* Sténo Card */}
+          <motion.div 
+            whileHover={{ y: -8 }}
+            onClick={onOpenSteno}
+            className="group cursor-pointer bg-white rounded-[40px] p-8 shadow-xl shadow-slate-200/50 border border-slate-100 transition-all"
+          >
+            <div className="w-16 h-16 bg-indigo-600 rounded-3xl flex items-center justify-center text-white mb-6 shadow-lg shadow-indigo-200">
+              <Mic className="w-8 h-8" />
+            </div>
+            <h2 className="text-3xl font-black uppercase italic tracking-tight text-slate-900 mb-2">
+              Sténo<span className="text-indigo-600">.</span>
+            </h2>
+            <p className="text-slate-500 font-medium leading-relaxed">
+              Retranscription intelligente en temps réel. Enregistrez vos conversations et gérez vos historiques.
+            </p>
+            <div className="mt-6 flex items-center gap-2 text-indigo-600 font-bold uppercase tracking-widest text-xs">
+              Ouvrir l'application
+              <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+            </div>
+          </motion.div>
+
+          {/* EVM Dashboard Card */}
+          <motion.div 
+            whileHover={{ y: -8 }}
+            onClick={onOpenEVM}
+            className="group cursor-pointer bg-white rounded-[40px] p-8 shadow-xl shadow-slate-200/50 border border-slate-100 transition-all"
+          >
+            <div className="w-16 h-16 bg-emerald-600 rounded-3xl flex items-center justify-center text-white mb-6 shadow-lg shadow-emerald-200">
+              <Activity className="w-8 h-8" />
+            </div>
+            <h2 className="text-3xl font-black uppercase italic tracking-tight text-slate-900 mb-2">
+              EVM Dashboard<span className="text-emerald-600">.</span>
+            </h2>
+            <p className="text-slate-500 font-medium leading-relaxed">
+              Earned Value Management. Suivi de performance projet, coûts et délais en temps réel.
+            </p>
+            <div className="mt-6 flex items-center gap-2 text-emerald-600 font-bold uppercase tracking-widest text-xs">
+              Ouvrir l'application
+              <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+            </div>
+          </motion.div>
+        </div>
+      </main>
+
+      <footer className="max-w-7xl mx-auto px-4 py-12 mt-12 border-t border-slate-200">
+        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+          © 2026 • Plateforme d'outils internes
+        </p>
+      </footer>
+    </div>
+  );
+}
+
+function EVMDashboardApp({ onBack }: { onBack: () => void }) {
+  const [data, setData] = useState<EVMData>({
+    plannedValue: 10000,
+    earnedValue: 8500,
+    actualCost: 9200,
+    budgetAtCompletion: 50000,
+    monthlyPlannedValues: [5000, 10000, 15000, 20000, 25000, 30000, 35000, 40000, 45000, 50000]
+  });
+
+  const metrics = useMemo<EVMMetrics>(() => {
+    const spi = data.earnedValue / data.plannedValue;
+    const cpi = data.earnedValue / data.actualCost;
+    const sv = data.earnedValue - data.plannedValue;
+    const cv = data.earnedValue - data.actualCost;
+    return { spi, cpi, sv, cv };
+  }, [data]);
+
+  return (
+    <div className="min-h-screen bg-[#F8FAFC] font-sans text-slate-900">
+      <div className="max-w-7xl mx-auto px-4 py-8 md:py-12">
+        <header className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
+          <div className="space-y-2">
+            <button 
+              onClick={onBack}
+              className="flex items-center gap-2 text-slate-400 hover:text-slate-900 font-bold uppercase tracking-widest text-[10px] mb-4 transition-all"
+            >
+              <Plus className="w-3 h-3 rotate-45" />
+              Retour à l'accueil
+            </button>
+            <div className="flex items-center gap-2 px-3 py-1 bg-emerald-50 text-emerald-600 rounded-full text-[10px] font-bold uppercase tracking-widest w-fit">
+              <Activity className="w-3 h-3" />
+              Performance Projet
+            </div>
+            <h1 className="text-5xl md:text-7xl font-black tracking-tighter text-slate-900 uppercase italic">
+              EVM Dashboard<span className="text-emerald-600">.</span>
+            </h1>
+            <p className="text-slate-400 font-medium tracking-tight">Earned Value Management Analysis</p>
+          </div>
+        </header>
+
+        <main className="space-y-8">
+          {/* Key Metrics Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <MetricCard 
+              label="SPI (Schedule Performance Index)" 
+              value={metrics.spi.toFixed(2)} 
+              status={metrics.spi >= 1 ? 'good' : 'bad'}
+              icon={<Clock className="w-5 h-5" />}
+              description={metrics.spi >= 1 ? "En avance sur le planning" : "En retard sur le planning"}
+            />
+            <MetricCard 
+              label="CPI (Cost Performance Index)" 
+              value={metrics.cpi.toFixed(2)} 
+              status={metrics.cpi >= 1 ? 'good' : 'bad'}
+              icon={<TrendingUp className="w-5 h-5" />}
+              description={metrics.cpi >= 1 ? "Sous le budget" : "Au-dessus du budget"}
+            />
+            <MetricCard 
+              label="SV (Schedule Variance)" 
+              value={`${metrics.sv > 0 ? '+' : ''}${metrics.sv} €`} 
+              status={metrics.sv >= 0 ? 'good' : 'bad'}
+              icon={<Calendar className="w-5 h-5" />}
+              description="Écart de délai en valeur monétaire"
+            />
+            <MetricCard 
+              label="CV (Cost Variance)" 
+              value={`${metrics.cv > 0 ? '+' : ''}${metrics.cv} €`} 
+              status={metrics.cv >= 0 ? 'good' : 'bad'}
+              icon={<DollarSign className="w-5 h-5" />}
+              description="Écart de coût"
+            />
+          </div>
+
+          {/* Data Entry & Summary */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <section className="lg:col-span-1 bg-white rounded-[40px] p-8 shadow-xl border border-slate-100 space-y-6">
+              <h3 className="text-xl font-black uppercase italic tracking-tight text-slate-900 border-b border-slate-50 pb-4">Données de base</h3>
+              <div className="space-y-4">
+                <DataInput 
+                  label="Planned Value (PV)" 
+                  value={data.plannedValue} 
+                  onChange={(val) => setData(prev => ({ ...prev, plannedValue: val }))} 
+                />
+                <DataInput 
+                  label="Earned Value (EV)" 
+                  value={data.earnedValue} 
+                  onChange={(val) => setData(prev => ({ ...prev, earnedValue: val }))} 
+                />
+                <DataInput 
+                  label="Actual Cost (AC)" 
+                  value={data.actualCost} 
+                  onChange={(val) => setData(prev => ({ ...prev, actualCost: val }))} 
+                />
+                <DataInput 
+                  label="Budget At Completion (BAC)" 
+                  value={data.budgetAtCompletion} 
+                  onChange={(val) => setData(prev => ({ ...prev, budgetAtCompletion: val }))} 
+                />
+              </div>
+            </section>
+
+            <section className="lg:col-span-2 bg-white rounded-[40px] p-8 shadow-xl border border-slate-100 flex flex-col justify-center items-center text-center space-y-6">
+              <div className="w-20 h-20 bg-emerald-50 rounded-full flex items-center justify-center text-emerald-600 mb-2">
+                <BarChart3 className="w-10 h-10" />
+              </div>
+              <h3 className="text-3xl font-black uppercase italic tracking-tight text-slate-900">Résumé de l'état</h3>
+              <p className="text-slate-500 max-w-md font-medium leading-relaxed">
+                Le projet est actuellement {metrics.spi >= 1 ? "en avance" : "en retard"} de {Math.abs(metrics.sv)} € sur le planning 
+                et {metrics.cpi >= 1 ? "sous" : "au-dessus"} du budget de {Math.abs(metrics.cv)} €.
+              </p>
+              <div className="grid grid-cols-2 gap-4 w-full max-w-sm">
+                <div className="p-4 bg-slate-50 rounded-2xl">
+                  <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Progression</div>
+                  <div className="text-2xl font-black text-slate-900">{((data.earnedValue / data.budgetAtCompletion) * 100).toFixed(1)}%</div>
+                </div>
+                <div className="p-4 bg-slate-50 rounded-2xl">
+                  <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">EAC (Estim. at Completion)</div>
+                  <div className="text-2xl font-black text-slate-900">{(data.budgetAtCompletion / metrics.cpi).toFixed(0)} €</div>
+                </div>
+              </div>
+            </section>
+          </div>
+        </main>
+      </div>
+    </div>
+  );
+}
+
+function MetricCard({ label, value, status, icon, description }: { label: string, value: string, status: 'good' | 'bad', icon: React.ReactNode, description: string }) {
+  return (
+    <div className="bg-white rounded-[32px] p-6 shadow-lg border border-slate-100 space-y-4">
+      <div className="flex items-center justify-between">
+        <div className={cn(
+          "w-10 h-10 rounded-2xl flex items-center justify-center",
+          status === 'good' ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-500"
+        )}>
+          {icon}
+        </div>
+        <div className={cn(
+          "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest",
+          status === 'good' ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"
+        )}>
+          {status === 'good' ? "OK" : "Alerte"}
+        </div>
+      </div>
+      <div>
+        <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{label}</h4>
+        <div className="text-3xl font-black text-slate-900 tracking-tight">{value}</div>
+      </div>
+      <p className="text-xs text-slate-500 font-medium">{description}</p>
+    </div>
+  );
+}
+
+function DataInput({ label, value, onChange }: { label: string, value: number, onChange: (val: number) => void }) {
+  return (
+    <div className="space-y-1">
+      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{label}</label>
+      <input 
+        type="number" 
+        value={value} 
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="w-full px-4 py-3 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-emerald-500 font-bold text-slate-700"
+      />
+    </div>
+  );
+}
+
+function StenoApp({ onBack }: { onBack: () => void }) {
   // State
   const [isRecording, setIsRecording] = useState(false);
   const [currentText, setCurrentText] = useState('');
@@ -96,7 +363,6 @@ export default function App() {
     };
 
     recognition.onend = () => {
-      // Auto-restart if still recording (sometimes it stops unexpectedly)
       if (isRecording) {
         try {
           recognition.start();
@@ -108,7 +374,6 @@ export default function App() {
 
     recognitionRef.current = recognition;
 
-    // Load history
     const saved = localStorage.getItem('steno_history_v2');
     if (saved) {
       try {
@@ -157,7 +422,6 @@ export default function App() {
       timerRef.current = null;
     }
 
-    // Auto-save if there's text
     if (currentText.trim()) {
       saveToHistory();
     }
@@ -241,6 +505,7 @@ export default function App() {
             Désolé, votre navigateur ne supporte pas l'API de reconnaissance vocale. 
             Veuillez utiliser <strong>Google Chrome</strong> ou <strong>Microsoft Edge</strong> pour profiter de Sténo.
           </p>
+          <button onClick={onBack} className="text-indigo-600 font-bold uppercase tracking-widest text-xs">Retour à l'accueil</button>
         </div>
       </div>
     );
@@ -252,6 +517,13 @@ export default function App() {
         {/* Header */}
         <header className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
           <div className="space-y-2">
+            <button 
+              onClick={onBack}
+              className="flex items-center gap-2 text-slate-400 hover:text-slate-900 font-bold uppercase tracking-widest text-[10px] mb-4 transition-all"
+            >
+              <Plus className="w-3 h-3 rotate-45" />
+              Retour à l'accueil
+            </button>
             <div className="flex items-center gap-2 px-3 py-1 bg-indigo-50 text-indigo-600 rounded-full text-[10px] font-bold uppercase tracking-widest w-fit">
               <Mic className="w-3 h-3" />
               Enregistrement Vocal
@@ -550,3 +822,4 @@ export default function App() {
     </div>
   );
 }
+
